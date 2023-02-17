@@ -20,11 +20,13 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
     def __init__(
         self,
         forecast_steps: int = 18,
+        input_steps: int = 4,
         input_channels: int = 1,
         output_shape: int = 256,
         gen_lr: float = 5e-5,
         disc_lr: float = 2e-4,
         visualize: bool = False,
+        visualize_every_n_batch : int = 50,
         conv_type: str = "standard",
         num_samples: int = 6,
         grid_lambda: float = 20.0,
@@ -33,6 +35,7 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         latent_channels: int = 768,
         context_channels: int = 384,
         generation_steps: int = 6,
+        predict_generation_steps: int = 48,
         **kwargs,
     ):
         """
@@ -75,6 +78,7 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         latent_channels = self.config["latent_channels"]
         context_channels = self.config["context_channels"]
         visualize = self.config["visualize"]
+        
         self.gen_lr = gen_lr
         self.disc_lr = disc_lr
         self.beta1 = beta1
@@ -84,14 +88,17 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         self.grid_lambda = grid_lambda
         self.num_samples = num_samples
         self.visualize = visualize
+        self.visualize_every_n_batch = visualize_every_n_batch
         self.latent_channels = latent_channels
         self.context_channels = context_channels
         self.input_channels = input_channels
         self.generation_steps = generation_steps
+        self.predict_generation_steps = predict_generation_steps
         self.conditioning_stack = ContextConditioningStack(
             input_channels=input_channels,
             conv_type=conv_type,
             output_channels=self.context_channels,
+            input_steps=input_steps
         )
         self.latent_stack = LatentConditioningStack(
             shape=(8 * self.input_channels, output_shape // 32, output_shape // 32),
@@ -187,7 +194,7 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         # generate images
         generated_images = self(images)
         # log sampled images
-        if self.visualize:
+        if self.visualize and self.global_step % self.visualize_every_n_batch ==0:
             self.visualize_step(
                 images, future_images, generated_images, self.global_iteration, step="train"
             )
@@ -255,10 +262,20 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         # generate images
         generated_images = self(images)
         # log sampled images
-        if self.visualize:
+        if self.visualize and batch_idx % self.visualize_every_n_batch == 0:
             self.visualize_step(
                 images, future_images, generated_images, self.global_iteration, step="val"
             )
+
+    def predict_step(self, batch, batch_idx: int, dataloader_idx = None):
+        images, _ = batch
+        images = images.float()
+        predictions = [self(images) for _ in range(self.predict_generation_steps)]
+        return (
+            self.trainer.datamodule.predict_dataset.output_to_storage_conversion(
+                torch.stack(predictions, dim=0).squeeze()
+            )
+        )
 
     def configure_optimizers(self):
         b1 = self.beta1
