@@ -124,7 +124,8 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         return x
 
     def training_step(self, batch, batch_idx):
-        images, future_images = batch
+        images = batch["inputs"]
+        future_images = batch["outputs"]
         images = images.float()
         future_images = future_images.float()
         self.global_iteration += 1
@@ -200,7 +201,8 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
             )
 
     def validation_step(self, batch, batch_idx):
-        images, future_images = batch
+        images = batch["inputs"]
+        future_images = batch["outputs"]
         images = images.float()
         future_images = future_images.float()
         ##########################
@@ -268,7 +270,7 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
             )
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx = None):
-        images, _ = batch
+        images = batch["inputs"]
         images = images.float()
         predictions = [self(images) for _ in range(self.predict_generation_steps)]
         return (
