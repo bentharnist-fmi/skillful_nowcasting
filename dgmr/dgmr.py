@@ -195,7 +195,7 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         # generate images
         generated_images = self(images)
         # log sampled images
-        if self.visualize and self.global_step % self.visualize_every_n_batch ==0:
+        if self.visualize and self.global_step % self.visualize_every_n_batch == 0:
             self.visualize_step(
                 images, future_images, generated_images, self.global_iteration, step="train"
             )
@@ -292,7 +292,7 @@ class DGMR(pl.LightningModule, NowcastingModelHubMixin):
         self, x: torch.Tensor, y: torch.Tensor, y_hat: torch.Tensor, batch_idx: int, step: str
     ) -> None:
         # the logger you used (in this case tensorboard)
-        tensorboard = self.logger.experiment[0]
+        tensorboard = self.logger.experiment
         # Timesteps per channel
         images = x[0].cpu().detach()
         future_images = y[0].cpu().detach()
